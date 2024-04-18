@@ -1,17 +1,10 @@
 package main
 
 import (
-	"fmt"
-	goserver "statkiGo/go-server"
+	game "statkiGo/main-logic"
 )
 
 func main() {
-	// str := goserver.InitGame()
-	// fmt.Printf(str)
-	f, err := goserver.InitGame()
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println(f)
-	}
+
+	game.DisplayStatus()
 }

@@ -16,7 +16,68 @@ type PostRequest struct {
 	Wpbot       bool     `json:"wpbot"`
 }
 
-func InitGame() (string, error) {
+type Response struct {
+	Nick           string `json:"nick"`
+	GameStatus     string `json:"game_status"`
+	LastGameStatus string `json:"last_game_status"`
+	Opponent       string `json:"opponent"`
+	ShouldFire     bool   `json:"should_fire"`
+	Timer          int    `json:"timer"`
+}
+
+var url = "https://go-pjatk-server.fly.dev/api/game"
+var responseToken string
+
+func InitGame() (Response, error) {
+
+	postResponse, err := gameInitialization()
+	if err != nil {
+		return Response{}, err
+	} else {
+		responseToken = postResponse
+	}
+
+	response, err := GetGameStatus()
+	if err != nil {
+		return Response{}, err
+	}
+	return response, nil
+}
+
+func GetGameStatus() (Response, error) {
+	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
+	req.Header.Set("X-Auth-Token", responseToken)
+	req.Header.Set("Content-Type", "application/json")
+	resp2, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		return Response{}, err
+	}
+	defer req.Body.Close()
+
+	var getResponseString string
+
+	if resp2.StatusCode == 200 {
+		body, err := io.ReadAll(resp2.Body)
+		if err != nil {
+			return Response{}, err
+		}
+
+		getResponseString = string(body)
+	} else {
+		return Response{}, err
+	}
+
+	var response Response
+	err = json.Unmarshal([]byte(getResponseString), &response)
+	if err != nil {
+		return Response{}, err
+	}
+	return response, nil
+}
+
+func gameInitialization() (string, error) {
+
 	postRequest := PostRequest{
 		Coords: []string{
 			"A1",
@@ -40,18 +101,16 @@ func InitGame() (string, error) {
 			"J4",
 			"J8"},
 		Desc:        "My first game",
-		Nick:        "John_Doe",
+		Nick:        "Gruby",
 		Target_nick: "",
 		Wpbot:       true,
 	}
 
 	body, _ := json.Marshal(postRequest)
-	var responseToken string
-	var url = "https://go-pjatk-server.fly.dev/api/game"
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 
 	if err != nil {
-		return "error: ", err
+		return "Error occured: ", err
 	}
 
 	defer resp.Body.Close()
@@ -61,33 +120,7 @@ func InitGame() (string, error) {
 		responseToken = resp.Header.Get("x-auth-token")
 
 	} else {
-		responseToken = fmt.Sprint("Post failed with error: " + resp.Status)
-		return responseToken, err
+		return fmt.Sprintf("Error occured, status code: %d", resp.StatusCode), err
 	}
-
-	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
-	req.Header.Set("X-Auth-Token", responseToken)
-	req.Header.Set("Content-Type", "application/json")
-	resp2, err := http.DefaultClient.Do(req)
-
-	if err != nil {
-		return "Get request error: ", err
-	}
-	defer req.Body.Close()
-
-	var getResponseString string
-
-	if resp2.StatusCode == 200 {
-		body, err := io.ReadAll(resp2.Body)
-		if err != nil {
-			return "Get body read error: ", err
-		}
-
-		getResponseString = string(body)
-		fmt.Println("Response: ", getResponseString, body)
-	} else {
-		getResponseString = fmt.Sprint("Get failed with error: " + resp2.Status)
-		return getResponseString, err
-	}
-	return getResponseString, nil
+	return responseToken, nil
 }
