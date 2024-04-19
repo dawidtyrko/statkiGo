@@ -6,5 +6,6 @@ import (
 
 func main() {
 
-	game.DisplayStatus()
+	game.Logic()
+	//game.DisplayStatus()
 }

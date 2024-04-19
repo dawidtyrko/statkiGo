@@ -25,8 +25,13 @@ type Response struct {
 	Timer          int    `json:"timer"`
 }
 
+type BoardResponse struct {
+	Board []string `json:"board"`
+}
+
 var url = "https://go-pjatk-server.fly.dev/api/game"
 var responseToken string
+var boardUrl = "https://go-pjatk-server.fly.dev/api/game/board"
 
 func InitGame() (Response, error) {
 
@@ -100,8 +105,8 @@ func gameInitialization() (string, error) {
 			"I4",
 			"J4",
 			"J8"},
-		Desc:        "My first game",
-		Nick:        "Gruby",
+		Desc:        "USS Missouri",
+		Nick:        "William_M_Callaghan",
 		Target_nick: "",
 		Wpbot:       true,
 	}
@@ -123,4 +128,30 @@ func gameInitialization() (string, error) {
 		return fmt.Sprintf("Error occured, status code: %d", resp.StatusCode), err
 	}
 	return responseToken, nil
+}
+
+func Board() ([]string, error) {
+	req, _ := http.NewRequest(http.MethodGet, boardUrl, http.NoBody)
+	req.Header.Set("X-Auth-Token", responseToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	req2, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer req2.Body.Close()
+
+	if req2.StatusCode != 200 {
+		return nil, err
+	}
+
+	var boardRes BoardResponse
+
+	err = json.NewDecoder(req2.Body).Decode(&boardRes)
+	if err != nil {
+		return nil, err
+	}
+
+	return boardRes.Board, nil
 }
