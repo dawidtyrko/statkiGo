@@ -10,7 +10,7 @@ import (
 )
 
 func Logic() {
-	DisplayStatus()
+	DisplayInitialStatus()
 	stat := DisplayWaitingStatus()
 
 	//fmt.Println(stat)
@@ -20,9 +20,34 @@ func Logic() {
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			fmt.Println(board)
-			fmt.Println("##########################")
-			WarshipsGui()
+			for {
+				GuiSetup(board)
+
+				//co 60 sekund oddzielic do funkcji, odpalac w tle
+				req, err := goserver.GetGameStatus()
+				if err != nil {
+					fmt.Println(err)
+				}
+				if req.GameStatus != "game_in_progress" {
+					//wyswietlic zwyciezce i jakies dane
+					break
+				}
+				if req.ShouldFire {
+					input, err := UserInput()
+					if err != nil {
+						fmt.Println(err)
+						break
+					}
+					fireResponse, err := goserver.Fire(input)
+					if err != nil {
+						fmt.Println(err)
+						break
+					}
+					fmt.Println(fireResponse)
+					//if fireResponse == "miss"
+				}
+			}
+
 		}
 
 	} else {
@@ -32,7 +57,19 @@ func Logic() {
 
 }
 
-func DisplayStatus() {
+func UserInput() (string, error) {
+	var input string
+	fmt.Print("Enter the field (A8): ")
+
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		fmt.Println("Error reading input:", err)
+		return "", err
+	}
+	return input, nil
+}
+
+func DisplayInitialStatus() {
 	response, err := goserver.InitGame()
 	if err != nil {
 		fmt.Println(err)
@@ -73,12 +110,12 @@ func DisplayWaitingStatus() string {
 	return initialStatus
 }
 
-func WarshipsGui() {
-	GuiSetup()
-}
+// func WarshipsGui() {
+// 	GuiSetup()
+// }
 
-func GuiSetup() {
-	coords, errCoords := goserver.Board()
+func GuiSetup(coords []string) {
+	//coords, errCoords := goserver.Board()
 
 	cfg := gui.NewConfig()
 	cfg.HitChar = '#'
@@ -88,9 +125,9 @@ func GuiSetup() {
 
 	board := gui.New(cfg)
 	//coords, err := goserver.Board()
-	if errCoords != nil {
-		fmt.Println(errCoords)
-	}
+	// if errCoords != nil {
+	// 	fmt.Println(errCoords)
+	// }
 	board.Import(coords)
 	board.Display()
 

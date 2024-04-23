@@ -23,10 +23,15 @@ type Response struct {
 	Opponent       string `json:"opponent"`
 	ShouldFire     bool   `json:"should_fire"`
 	Timer          int    `json:"timer"`
+	OpponentShots []string `json:"opp_shots"`
 }
 
 type BoardResponse struct {
 	Board []string `json:"board"`
+}
+
+type PostFire struct {
+	Coord string `json:"coord"`
 }
 
 var url = "https://go-pjatk-server.fly.dev/api/game"
@@ -154,4 +159,37 @@ func Board() ([]string, error) {
 	}
 
 	return boardRes.Board, nil
+}
+
+func Fire(input string) (string,error){
+	postFire := PostFire{
+		Coord: input,
+	}
+	requestBody,err := json.Marshal(postFire)
+	if err != nil{
+		return "",err
+	}
+
+	req,err := http.NewRequest(http.MethodPost,url,bytes.NewBuffer(requestBody))
+	if err != nil{
+		return "",err
+	}
+	req.Header.Set("X-Auth-Token",responseToken)
+	req.Header.Set("X-Auth-Token","application/json")
+
+	req2, err := http.DefaultClient.Do(req)
+	if err != nil{
+		return "",err
+	}
+	defer req2.Body.Close()
+
+	if req2.StatusCode != 200{
+		return "",fmt.Errorf("Response status: %s",req2.Status)
+	}
+
+	var responseBody string
+	if err := json.NewDecoder(req2.Body).Decode(&responseBody); err != nil{
+		return "",err
+	}
+	return responseBody, nil
 }
