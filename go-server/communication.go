@@ -7,7 +7,10 @@ import (
 	"io"
 	"net/http"
 )
-
+type FireResponse struct{
+	Result string `json:"result"`
+	Message string `json:"message"`
+}
 type PostRequest struct {
 	Coords      []string `json:"coords"`
 	Desc        string   `json:"desc"`
@@ -37,6 +40,7 @@ type PostFire struct {
 var url = "https://go-pjatk-server.fly.dev/api/game"
 var responseToken string
 var boardUrl = "https://go-pjatk-server.fly.dev/api/game/board"
+var fireUrl = "https://go-pjatk-server.fly.dev/api/game/fire"
 
 func InitGame() (Response, error) {
 
@@ -140,20 +144,20 @@ func Board() ([]string, error) {
 	req.Header.Set("X-Auth-Token", responseToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	req2, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 
 	if err != nil {
 		return nil, err
 	}
-	defer req2.Body.Close()
+	defer resp.Body.Close()
 
-	if req2.StatusCode != 200 {
+	if resp.StatusCode != 200 {
 		return nil, err
 	}
 
 	var boardRes BoardResponse
 
-	err = json.NewDecoder(req2.Body).Decode(&boardRes)
+	err = json.NewDecoder(resp.Body).Decode(&boardRes)
 	if err != nil {
 		return nil, err
 	}
@@ -170,26 +174,39 @@ func Fire(input string) (string,error){
 		return "",err
 	}
 
-	req,err := http.NewRequest(http.MethodPost,url,bytes.NewBuffer(requestBody))
+	req,err := http.NewRequest(http.MethodPost,fireUrl,bytes.NewBuffer(requestBody))
 	if err != nil{
 		return "",err
 	}
+	//fmt.Print(responseToken)
 	req.Header.Set("X-Auth-Token",responseToken)
-	req.Header.Set("X-Auth-Token","application/json")
+	req.Header.Set("Content-type","application/json")
 
-	req2, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil{
-		return "",err
+		return "",fmt.Errorf("client do error: %w",err)
 	}
-	defer req2.Body.Close()
+	defer resp.Body.Close()
 
-	if req2.StatusCode != 200{
-		return "",fmt.Errorf("Response status: %s",req2.Status)
+	
+
+
+	
+	body,err := io.ReadAll(resp.Body)
+	if err != nil{
+		return "",fmt.Errorf("Reading body error: %w",err)
 	}
 
-	var responseBody string
-	if err := json.NewDecoder(req2.Body).Decode(&responseBody); err != nil{
-		return "",err
+	//fmt.Printf("body: %s\n",string(body))
+
+	var responseFire FireResponse
+	
+	err = json.Unmarshal(body, &responseFire)
+	if err != nil {
+		return "", fmt.Errorf("Decoder error: %w",err)
 	}
-	return responseBody, nil
+	if resp.StatusCode != 200{
+		return responseFire.Message,fmt.Errorf("Response status: %s",resp.Status)
+	}
+	return responseFire.Result, nil
 }

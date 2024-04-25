@@ -13,15 +13,17 @@ func Logic() {
 	DisplayInitialStatus()
 	stat := DisplayWaitingStatus()
 
-	//fmt.Println(stat)
 
 	if stat == "ready" {
-		board, err := goserver.Board()
+		config := GuiSetup()
+		board := gui.New(config)
+		boardCoords, err := goserver.Board()
 		if err != nil {
 			fmt.Println(err)
 		} else {
 			for {
-				GuiSetup(board)
+				board.Import(boardCoords)
+				board.Display()
 
 				//co 60 sekund oddzielic do funkcji, odpalac w tle
 				req, err := goserver.GetGameStatus()
@@ -33,18 +35,23 @@ func Logic() {
 					break
 				}
 				if req.ShouldFire {
-					input, err := UserInput()
+					output, ok := gui.ReadLineWithTimer("Enter coords: ",time.Minute)
+					
+					if !ok {
+						break
+					}
+					fmt.Println(output)
+					fireResponse, err := goserver.Fire(output)
 					if err != nil {
+						fmt.Println(fireResponse)
 						fmt.Println(err)
 						break
 					}
-					fireResponse, err := goserver.Fire(input)
-					if err != nil {
-						fmt.Println(err)
+					
+					if fireResponse == "miss"{
+						fmt.Println(fireResponse)
 						break
 					}
-					fmt.Println(fireResponse)
-					//if fireResponse == "miss"
 				}
 			}
 
@@ -114,8 +121,9 @@ func DisplayWaitingStatus() string {
 // 	GuiSetup()
 // }
 
-func GuiSetup(coords []string) {
-	//coords, errCoords := goserver.Board()
+func GuiSetup() *gui.Config{
+	
+	
 
 	cfg := gui.NewConfig()
 	cfg.HitChar = '#'
@@ -123,12 +131,9 @@ func GuiSetup(coords []string) {
 	cfg.BorderColor = color.BgRed
 	cfg.RulerTextColor = color.BgYellow
 
-	board := gui.New(cfg)
-	//coords, err := goserver.Board()
-	// if errCoords != nil {
-	// 	fmt.Println(errCoords)
-	// }
-	board.Import(coords)
-	board.Display()
-
+	
+	
+	// board.Import(coords)
+	// board.Display()
+	return cfg
 }
