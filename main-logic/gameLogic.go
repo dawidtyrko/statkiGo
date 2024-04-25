@@ -13,16 +13,20 @@ func Logic() {
 	DisplayInitialStatus()
 	stat := DisplayWaitingStatus()
 
-
 	if stat == "ready" {
 		config := GuiSetup()
 		board := gui.New(config)
 		boardCoords, err := goserver.Board()
 		if err != nil {
 			fmt.Println(err)
+			return
 		} else {
+			err := board.Import(boardCoords)
+			if err != nil {
+				fmt.Println("Problem with the coords import")
+				return
+			}
 			for {
-				board.Import(boardCoords)
 				board.Display()
 
 				//co 60 sekund oddzielic do funkcji, odpalac w tle
@@ -30,29 +34,55 @@ func Logic() {
 				if err != nil {
 					fmt.Println(err)
 				}
-				if req.GameStatus != "game_in_progress" {
-					//wyswietlic zwyciezce i jakies dane
-					break
-				}
+				// if req.GameStatus != "game_in_progress" {
+				// 	//wyswietlic zwyciezce i jakies dane
+				// 	break
+				// }
 				if req.ShouldFire {
-					output, ok := gui.ReadLineWithTimer("Enter coords: ",time.Minute)
-					
+					output, ok := gui.ReadLineWithTimer("Enter coords: ", time.Minute)
+
 					if !ok {
+						fmt.Println("wrong coordinates")
 						break
 					}
-					fmt.Println(output)
+					//fmt.Println(output)
 					fireResponse, err := goserver.Fire(output)
 					if err != nil {
 						fmt.Println(fireResponse)
 						fmt.Println(err)
 						break
 					}
-					
-					if fireResponse == "miss"{
-						fmt.Println(fireResponse)
+
+					state, err := board.HitOrMiss(gui.Right, output)
+					if err != nil {
+						fmt.Printf("error HitOrMissLeft: %v", err)
 						break
 					}
+
+					err = board.Set(gui.Right, output, state)
+					if err != nil {
+						fmt.Printf("error with Set: %v", err)
+						break
+					}
+
+					for i := 0; i < len(req.OpponentShots); i++ {
+						state2, err := board.HitOrMiss(gui.Left, req.OpponentShots[i])
+						if err != nil {
+							fmt.Printf("error HitOrMissRight: %v", err)
+							break
+						}
+						err = board.Set(gui.Left, req.OpponentShots[i], state2)
+						if err != nil {
+							fmt.Printf("error with Set: %v", err)
+							break
+						}
+					}
+
 				}
+				//DO ZROBIENIA
+				//board.Export(gui.Left)
+				//board.Export(gui.Right)
+				fmt.Print("\033[H\033[2J")
 			}
 
 		}
@@ -62,18 +92,6 @@ func Logic() {
 		return
 	}
 
-}
-
-func UserInput() (string, error) {
-	var input string
-	fmt.Print("Enter the field (A8): ")
-
-	_, err := fmt.Scanln(&input)
-	if err != nil {
-		fmt.Println("Error reading input:", err)
-		return "", err
-	}
-	return input, nil
 }
 
 func DisplayInitialStatus() {
@@ -117,13 +135,7 @@ func DisplayWaitingStatus() string {
 	return initialStatus
 }
 
-// func WarshipsGui() {
-// 	GuiSetup()
-// }
-
-func GuiSetup() *gui.Config{
-	
-	
+func GuiSetup() *gui.Config {
 
 	cfg := gui.NewConfig()
 	cfg.HitChar = '#'
@@ -131,8 +143,6 @@ func GuiSetup() *gui.Config{
 	cfg.BorderColor = color.BgRed
 	cfg.RulerTextColor = color.BgYellow
 
-	
-	
 	// board.Import(coords)
 	// board.Display()
 	return cfg

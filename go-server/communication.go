@@ -7,8 +7,9 @@ import (
 	"io"
 	"net/http"
 )
-type FireResponse struct{
-	Result string `json:"result"`
+
+type FireResponse struct {
+	Result  string `json:"result"`
 	Message string `json:"message"`
 }
 type PostRequest struct {
@@ -20,13 +21,13 @@ type PostRequest struct {
 }
 
 type Response struct {
-	Nick           string `json:"nick"`
-	GameStatus     string `json:"game_status"`
-	LastGameStatus string `json:"last_game_status"`
-	Opponent       string `json:"opponent"`
-	ShouldFire     bool   `json:"should_fire"`
-	Timer          int    `json:"timer"`
-	OpponentShots []string `json:"opp_shots"`
+	Nick           string   `json:"nick"`
+	GameStatus     string   `json:"game_status"`
+	LastGameStatus string   `json:"last_game_status"`
+	Opponent       string   `json:"opponent"`
+	ShouldFire     bool     `json:"should_fire"`
+	Timer          int      `json:"timer"`
+	OpponentShots  []string `json:"opp_shots"`
 }
 
 type BoardResponse struct {
@@ -165,48 +166,44 @@ func Board() ([]string, error) {
 	return boardRes.Board, nil
 }
 
-func Fire(input string) (string,error){
+func Fire(input string) (string, error) {
 	postFire := PostFire{
 		Coord: input,
 	}
-	requestBody,err := json.Marshal(postFire)
-	if err != nil{
-		return "",err
+	requestBody, err := json.Marshal(postFire)
+	if err != nil {
+		return "", err
 	}
 
-	req,err := http.NewRequest(http.MethodPost,fireUrl,bytes.NewBuffer(requestBody))
-	if err != nil{
-		return "",err
+	req, err := http.NewRequest(http.MethodPost, fireUrl, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return "", err
 	}
 	//fmt.Print(responseToken)
-	req.Header.Set("X-Auth-Token",responseToken)
-	req.Header.Set("Content-type","application/json")
+	req.Header.Set("X-Auth-Token", responseToken)
+	req.Header.Set("Content-type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil{
-		return "",fmt.Errorf("client do error: %w",err)
+	if err != nil {
+		return "", fmt.Errorf("client do error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	
-
-
-	
-	body,err := io.ReadAll(resp.Body)
-	if err != nil{
-		return "",fmt.Errorf("Reading body error: %w",err)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading body error: %w", err)
 	}
 
 	//fmt.Printf("body: %s\n",string(body))
 
 	var responseFire FireResponse
-	
+
 	err = json.Unmarshal(body, &responseFire)
 	if err != nil {
-		return "", fmt.Errorf("Decoder error: %w",err)
+		return "", fmt.Errorf("decoder error: %w", err)
 	}
-	if resp.StatusCode != 200{
-		return responseFire.Message,fmt.Errorf("Response status: %s",resp.Status)
+	if resp.StatusCode != 200 {
+		return responseFire.Message, fmt.Errorf("Response status: %s", resp.Status)
 	}
 	return responseFire.Result, nil
 }
