@@ -1,7 +1,9 @@
 package mainlogic
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	goserver "statkiGo/go-server"
 	"time"
 
@@ -9,9 +11,20 @@ import (
 	gui "github.com/grupawp/warships-lightgui/v2"
 )
 
+type UserPrompt struct {
+	Nick string
+}
+
 func Logic() {
-	DisplayInitialStatus()
+	user, err := Prompt()
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
+	DisplayInitialStatus(user.Nick)
 	stat := DisplayWaitingStatus()
+
+	var oppShots []string
 
 	if stat == "ready" {
 		config := GuiSetup()
@@ -26,13 +39,32 @@ func Logic() {
 				fmt.Println("Problem with the coords import")
 				return
 			}
+			description, err := goserver.GetDescription()
+			if err != nil {
+				fmt.Println("Problem with importing description")
+				return
+			}
+
+			//exported := board.Export(gui.Left)
+			//fmt.Printf("Exported: %s\n", exported)
+			var i = 0
 			for {
 				board.Display()
-
+				fmt.Printf("Nick: %s\nDescription: %s\nOpponent: %s\nOpponent description: %s\n",
+					description.Nick, description.Desc, description.Opponent, description.OpponentDescription)
 				//co 60 sekund oddzielic do funkcji, odpalac w tle
 				req, err := goserver.GetGameStatus()
 				if err != nil {
 					fmt.Println(err)
+					time.Sleep(1 * time.Second)
+
+				}
+
+				if len(req.OpponentShots) == 0 {
+					continue
+					//oppShots = append(oppShots, req.OpponentShots[0])
+				} else {
+					oppShots = append(oppShots, req.OpponentShots[len(req.OpponentShots)-1])
 				}
 				// if req.GameStatus != "game_in_progress" {
 				// 	//wyswietlic zwyciezce i jakies dane
@@ -65,24 +97,25 @@ func Logic() {
 						break
 					}
 
-					for i := 0; i < len(req.OpponentShots); i++ {
-						state2, err := board.HitOrMiss(gui.Left, req.OpponentShots[i])
-						if err != nil {
-							fmt.Printf("error HitOrMissRight: %v", err)
-							break
-						}
-						err = board.Set(gui.Left, req.OpponentShots[i], state2)
-						if err != nil {
-							fmt.Printf("error with Set: %v", err)
-							break
-						}
+					lastElement := oppShots[len(oppShots)-1]
+
+					state2, err := board.HitOrMiss(gui.Left, lastElement)
+					if err != nil {
+						fmt.Printf("error HitOrMissRight: %v", err)
+						break
+					}
+					err = board.Set(gui.Left, lastElement, state2)
+					if err != nil {
+						fmt.Printf("error with Set: %v", err)
+						break
 					}
 
 				}
 				//DO ZROBIENIA
 				//board.Export(gui.Left)
 				//board.Export(gui.Right)
-				fmt.Print("\033[H\033[2J")
+				//fmt.Print("\033[H\033[2J")
+				i++
 			}
 
 		}
@@ -94,8 +127,8 @@ func Logic() {
 
 }
 
-func DisplayInitialStatus() {
-	response, err := goserver.InitGame()
+func DisplayInitialStatus(name string) {
+	response, err := goserver.InitGame(name)
 	if err != nil {
 		fmt.Println(err)
 	} else {
@@ -142,8 +175,31 @@ func GuiSetup() *gui.Config {
 	cfg.HitColor = color.FgRed
 	cfg.BorderColor = color.BgRed
 	cfg.RulerTextColor = color.BgYellow
+	cfg.MissChar = 'X'
+	cfg.MissColor = color.BgCyan
 
 	// board.Import(coords)
 	// board.Display()
 	return cfg
+}
+
+func Prompt() (UserPrompt, error) {
+	lobbies, err := goserver.GetLobby()
+	if err != nil {
+		fmt.Print(err)
+		return UserPrompt{}, err
+	}
+	for _, lobby := range lobbies {
+		fmt.Printf("User: %s, Status: %s\n", lobby.User, lobby.User)
+	}
+
+	fmt.Print("Enter your chosen enemy: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	name := scanner.Text()
+
+	var prompt UserPrompt
+	prompt.Nick = name
+
+	return prompt, nil
 }
