@@ -46,27 +46,15 @@ type PostFire struct {
 	Coord string `json:"coord"`
 }
 
+
 var url = "https://go-pjatk-server.fly.dev/api/game"
 var responseToken string
 var boardUrl = "https://go-pjatk-server.fly.dev/api/game/board"
 var fireUrl = "https://go-pjatk-server.fly.dev/api/game/fire"
 var descUrl = "https://go-pjatk-server.fly.dev/api/game/desc"
+var lobbyUrl = "https://go-pjatk-server.fly.dev/api/game/lobby"
 
-func InitGame(name string) (Response, error) {
 
-	postResponse, err := gameInitialization(name)
-	if err != nil {
-		return Response{}, err
-	} else {
-		responseToken = postResponse
-	}
-
-	response, err := GetGameStatus()
-	if err != nil {
-		return Response{}, err
-	}
-	return response, nil
-}
 func GetDescription() (Description, error) {
 	req, _ := http.NewRequest(http.MethodGet, descUrl, http.NoBody)
 	req.Header.Set("X-Auth-Token", responseToken)
@@ -129,41 +117,29 @@ func GetGameStatus() (Response, error) {
 	return response, nil
 }
 
-func gameInitialization(name string) (string, error) {
+func GameInitialization(name string, gamemode string) (string, error) {
+	var wp bool
+	if gamemode == "single"{
+		name = ""
+		wp = true
+	}else{
+		wp = false
+	}
 
 	postRequest := PostRequest{
 		Coords: []string{
-			"A1",
-			"A3",
-			"B9",
-			"C7",
-			"D1",
-			"D2",
-			"D3",
-			"D4",
-			"D7",
-			"E7",
-			"F1",
-			"F2",
-			"F3",
-			"F5",
-			"G5",
-			"G8",
-			"G9",
-			"I4",
-			"J4",
-			"J8"},
+			},
 		Desc:        "USS Missouri",
 		Nick:        "William_M_Callaghan",
 		Target_nick: name,
-		Wpbot:       true,
+		Wpbot:       wp,
 	}
-
+	
 	body, _ := json.Marshal(postRequest)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 
 	if err != nil {
-		return "Error occured: ", err
+		return "Error", err
 	}
 
 	defer resp.Body.Close()
@@ -171,9 +147,9 @@ func gameInitialization(name string) (string, error) {
 	if resp.StatusCode == 200 {
 
 		responseToken = resp.Header.Get("x-auth-token")
-
+		fmt.Println(resp.StatusCode)
 	} else {
-		return fmt.Sprintf("Error occured, status code: %d", resp.StatusCode), err
+		return "Error", err
 	}
 	return responseToken, nil
 }
@@ -247,17 +223,15 @@ func Fire(input string) (string, error) {
 }
 
 func GetLobby() ([]Lobby, error) {
-	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
+	req, _ := http.NewRequest(http.MethodGet, lobbyUrl, http.NoBody)
+	req.Header.Set("Content-type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	var lobby []Lobby
 
 	if err != nil {
 		return nil, err
 	}
-	//kolejka do zrobienia
-	if len(lobby) < 1 {
-		return nil, nil
-	}
+	
 	defer req.Body.Close()
 	var responseString string
 	if resp.StatusCode == 200 {
@@ -275,4 +249,22 @@ func GetLobby() ([]Lobby, error) {
 	}
 	return lobby, nil
 
+}
+func RefreshSession() error {
+	req, _ := http.NewRequest(http.MethodGet, url, http.NoBody)
+	req.Header.Set("X-Auth-Token", responseToken)
+	req.Header.Set("Content-type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+
+	if err != nil {
+		return err
+	}
+
+	defer req.Body.Close()
+
+	if resp.StatusCode == 200{
+		return nil
+	}else{
+		return fmt.Errorf("refresh status code: %d",resp.StatusCode)
+	}
 }

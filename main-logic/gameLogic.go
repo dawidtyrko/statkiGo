@@ -13,7 +13,10 @@ import (
 
 type UserPrompt struct {
 	Nick string
+	Gamemode string
+	Token string
 }
+
 
 func Logic() {
 	user, err := Prompt()
@@ -21,7 +24,8 @@ func Logic() {
 		fmt.Print(err)
 		return
 	}
-	DisplayInitialStatus(user.Nick)
+	fmt.Println(user.Nick)
+	
 	stat := DisplayWaitingStatus()
 
 	var oppShots []string
@@ -45,14 +49,15 @@ func Logic() {
 				return
 			}
 
-			//exported := board.Export(gui.Left)
-			//fmt.Printf("Exported: %s\n", exported)
+			
 			var i = 0
 			for {
 				board.Display()
 				fmt.Printf("Nick: %s\nDescription: %s\nOpponent: %s\nOpponent description: %s\n",
 					description.Nick, description.Desc, description.Opponent, description.OpponentDescription)
-				//co 60 sekund oddzielic do funkcji, odpalac w tle
+				
+				time.Sleep(1 * time.Second)
+
 				req, err := goserver.GetGameStatus()
 				if err != nil {
 					fmt.Println(err)
@@ -66,10 +71,7 @@ func Logic() {
 				} else {
 					oppShots = append(oppShots, req.OpponentShots[len(req.OpponentShots)-1])
 				}
-				// if req.GameStatus != "game_in_progress" {
-				// 	//wyswietlic zwyciezce i jakies dane
-				// 	break
-				// }
+				
 				if req.ShouldFire {
 					output, ok := gui.ReadLineWithTimer("Enter coords: ", time.Minute)
 
@@ -127,33 +129,23 @@ func Logic() {
 
 }
 
-func DisplayInitialStatus(name string) {
-	response, err := goserver.InitGame(name)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		//fmt.Println(response)
-		fmt.Printf("Nick: %s\nGame_status: %s\nLast_game_status: %s\nOpponent: %s\nShould_fire: %t\nTimer: %d\n",
-			response.Nick, response.GameStatus, response.LastGameStatus, response.Opponent, response.ShouldFire, response.Timer)
-	}
-
-}
 
 func DisplayWaitingStatus() string {
 	var initialStatus string
 
-	for i := 1; i <= 50; i++ {
-		if i >= 50 {
+	for i := 1; i <= 100; i++ {
+		if i >= 100 {
 			initialStatus = "not_ready"
 			break
 		}
 		res, err := goserver.GetGameStatus()
+		//time.Sleep(1 * time.Second)
 		if err != nil {
 			fmt.Println(err)
 			initialStatus = "not_ready"
 			break
 		}
-
+		//fmt.Println(res.GameStatus)
 		if res.GameStatus == "game_in_progress" {
 			fmt.Printf("game_status: %s\n", res.GameStatus)
 			initialStatus = "ready"
@@ -184,22 +176,121 @@ func GuiSetup() *gui.Config {
 }
 
 func Prompt() (UserPrompt, error) {
-	lobbies, err := goserver.GetLobby()
-	if err != nil {
-		fmt.Print(err)
-		return UserPrompt{}, err
-	}
-	for _, lobby := range lobbies {
-		fmt.Printf("User: %s, Status: %s\n", lobby.User, lobby.User)
-	}
 
-	fmt.Print("Enter your chosen enemy: ")
+
 	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	name := scanner.Text()
-
 	var prompt UserPrompt
-	prompt.Nick = name
+	var name string
+	
+	fmt.Print("Choose mode: multi | single\n")
+	scanner.Scan()
+	mode := scanner.Text()
 
+	if mode == "single"{
+		resToken,err := goserver.GameInitialization("","single")
+		if err != nil{
+			fmt.Printf("Error game initialization: %v",err)
+			return UserPrompt{}, err
+		}
+		prompt.Token = resToken
+		prompt.Gamemode = mode
+		prompt.Nick = ""
+
+	}else if mode == "multi"{
+
+		resToken,err := goserver.GameInitialization("","multi")
+		if err != nil{
+			fmt.Printf("Error game initialization: %v",err)
+			return UserPrompt{}, err
+		}
+		prompt.Token = resToken
+		prompt.Gamemode = mode
+
+			for {
+				lobbies, err := goserver.GetLobby()
+				if err != nil {
+					fmt.Print(err)
+					break
+				}
+				if len(lobbies) == 0{
+					fmt.Println("Lobby is empty")
+
+
+				}else{
+					for _, lobby := range lobbies {
+						fmt.Printf("User: %s, Status: %s\n", lobby.User, lobby.Status)
+					}
+					fmt.Print("Enter your chosen enemy: ")
+					scanner.Scan()
+					name = scanner.Text()
+
+					found := false
+					for _, lobby := range lobbies {
+						if lobby.User == name {
+							found = true
+							break
+						}
+					}
+					if !found {
+						fmt.Printf("%s is not in the lobby.\n", name)
+						continue 
+					}else{
+						fmt.Printf("%s is your chosen enemy.\n",name)
+						break
+					}
+				}
+				
+				time.Sleep(2 * time.Second) 
+				fmt.Print("\033[H\033[2J")
+			}
+
+		prompt.Nick = name
+		
+
+		res, err := goserver.GameInitialization(name,mode)
+		if err != nil{
+			fmt.Println(err)
+		}
+		//fmt.Println(res)
+		prompt.Token = res
+
+	}else{
+		return UserPrompt{},nil
+	}
 	return prompt, nil
+	
+}
+
+func ImportExport() ([]string, error){
+	config := GuiSetup()
+	board := gui.New(config)
+	coords := []string{
+		"A1",
+    "A3",
+    "B9",
+    "C7",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "D7",
+    "E7",
+    "F1",
+    "F2",
+    "F3",
+    "F5",
+    "G5",
+    "G8",
+    "G9",
+    "I4",
+    "J4",
+    "J8"}
+	err := board.Import(coords)
+	if err != nil{
+		fmt.Println(err)
+		return nil,err
+	}
+	exported := board.Export(gui.Left)
+	fmt.Println(exported)
+	return exported,nil
 }
